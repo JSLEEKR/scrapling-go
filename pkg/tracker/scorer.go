@@ -81,21 +81,35 @@ func CalculateSimilarityScore(stored, candidate *storage.ElementDict) float64 {
 	totalScore += similarity.StringRatio(storedPath, candidatePath)
 
 	// 10. Parent tag match (binary)
+	// Always count parent factors — if one side is missing parent info,
+	// these factors score 0 to penalize the asymmetry rather than inflating
+	// the score by silently skipping them.
+	checks++
 	if stored.Parent != nil && candidate.Parent != nil {
-		checks++
 		if stored.Parent.Tag == candidate.Parent.Tag {
 			totalScore += 1.0
 		}
+	} else if stored.Parent == nil && candidate.Parent == nil {
+		totalScore += 1.0 // both missing = match
+	}
+	// else: one has parent, other doesn't → score 0 for this factor
 
-		// 11. Parent attributes similarity
-		checks++
+	// 11. Parent attributes similarity
+	checks++
+	if stored.Parent != nil && candidate.Parent != nil {
 		parentStoredKeys := mapKeys(stored.Parent.Attributes)
 		parentCandidateKeys := mapKeys(candidate.Parent.Attributes)
 		totalScore += similarity.SetRatio(parentStoredKeys, parentCandidateKeys)
+	} else if stored.Parent == nil && candidate.Parent == nil {
+		totalScore += 1.0
+	}
 
-		// 12. Parent text similarity
-		checks++
+	// 12. Parent text similarity
+	checks++
+	if stored.Parent != nil && candidate.Parent != nil {
 		totalScore += similarity.StringRatio(stored.Parent.Text, candidate.Parent.Text)
+	} else if stored.Parent == nil && candidate.Parent == nil {
+		totalScore += 1.0
 	}
 
 	// 13. Sibling count similarity
