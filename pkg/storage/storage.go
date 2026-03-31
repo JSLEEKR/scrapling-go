@@ -52,6 +52,14 @@ func New(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("open sqlite %q: %w", dbPath, err)
 	}
 
+	// For in-memory databases, restrict to a single connection.
+	// Each connection in the pool gets its own independent in-memory
+	// database, so using multiple connections causes silent data loss
+	// when writes go to one database and reads go to another.
+	if dbPath == ":memory:" {
+		db.SetMaxOpenConns(1)
+	}
+
 	// Enable WAL mode for better concurrency
 	if dbPath != ":memory:" {
 		if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
